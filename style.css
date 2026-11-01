@@ -1,0 +1,90 @@
+/* Paleta de Colores Cyberpunk / Neon Night */
+:root {
+    --bg-main: #0A0A0F;
+    --bg-secondary: #181824;
+    --color-primary: #00FFCC; /* Cian Neón */
+    --color-secondary: #BD00FF; /* Morado Eléctrico */
+    --text-main: #E2E8F0;    /* Gris Pálido */
+    --text-muted: #64748b;
+}
+
+/* Fondo general y texto base */
+body {
+    background-color: var(--bg-main) !important;
+    color: var(--text-main) !important;
+}
+
+/* Contenedor de la canción */
+#song-content {
+    color: var(--text-main) !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 22px !important;
+    line-height: 1.6 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 999 !important;
+    position: relative !important;
+}
+
+/* ESTILO DE LOS ACORDES - Volvemos al Naranja Brillante */
+.chord {
+    color: #f97316 !important; /* Naranja brillante original */
+    font-weight: bold !important;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0 1px;
+}
+
+.chord:hover {
+    color: #fb923c !important;
+    text-decoration: underline;
+}
+
+/* Asegurar que el header sea visible */
+#song-header {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-main) !important;
+    display: flex !important;
+}
+
+/* Estilo para la línea de acordes */
+.chord-line {
+    color: #f97316 !important;
+    font-weight: bold;
+    height: auto;
+    margin-bottom: 0px;
+    font-family: 'Courier New', monospace;
+    line-height: 1.2;
+}
+
+/* Estilo para la línea de letra */
+.lyric-line {
+    color: var(--text-main);
+    margin-bottom: 1.5rem;
+    font-family: 'Courier New', Courier, monospace;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+/* Forzar que el modal esté siempre al frente */
+#modal-song, #modal-setlist {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    background-color: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Evitar que el contenido principal interfiera */
+#song-content-container, #song-header, aside {
+    z-index: 1;
+}
+
+/* Ajustes adicionales para Tailwind mediante CSS */
+aside {
+    background-color: var(--bg-secondary) !important;
+}
