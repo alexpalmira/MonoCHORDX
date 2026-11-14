@@ -43,6 +43,14 @@ const fsBtnClose = document.getElementById('btn-close-fullscreen');
 const fsBtnUp = document.getElementById('fs-transpose-up');
 const fsBtnDown = document.getElementById('fs-transpose-down');
 
+const contextMenu = document.getElementById('context-menu');
+const ctxAddSetlist = document.getElementById('ctx-add-setlist');
+const ctxEdit = document.getElementById('ctx-edit');
+const ctxDelete = document.getElementById('ctx-delete');
+const ctxRemoveSetlist = document.getElementById('ctx-remove-setlist');
+const ctxSetlistsSubmenuTrigger = document.getElementById('ctx-setlists-submenu-trigger');
+const ctxSetlistsSubmenu = document.getElementById('ctx-setlists-submenu');
+
 let currentSongContent = '';
 let currentTranspose = 0;
 
@@ -79,20 +87,39 @@ function renderSetlists(lists) {
     lists.forEach(list => {
         const div = document.createElement('div');
         div.className = 'flex justify-between items-center p-2 hover:bg-slate-700 rounded-lg cursor-pointer transition-all group';
-        div.innerHTML = '<span class="text-sm text-slate-300 group-hover:text-white truncate">' + list.name + '</span><button class="text-slate-500 hover:text-red-500 text-xs font-bold px-1 opacity-0 group-hover:opacity-100 transition-opacity" data-id="' + list.id + '">✕</button>';
-        div.querySelector('span').onclick = async () => {
-            currentSetlistId = list.id;
-            const songs = await dbBrowser.getSongsInSetlist(list.id);
-            renderSongList(songs, true);
-            searchInput.value = 'Lista: ' + list.name;
-            searchInput.disabled = true;
-        };
-        div.querySelector('button').onclick = async (e) => {
-            e.stopPropagation();
-            if (confirm('¿Eliminar la lista "' + list.name + '"?')) {
-                await dbBrowser.deleteSetlist(list.id);
-                loadSetlists();
+        div.innerHTML = '<span class="text-sm text-slate-300 group-hover:text-white truncate">' + list.name + '</span>';
+
+        // CLICK SIMPLE: Filtrar canciones del setlist inmediatamente
+        div.onclick = async () => {
+            try {
+                currentSetlistId = list.id;
+
+                // 1. Limpiar la lista inmediatamente para evitar confusiones visuales
+                if (songList) songList.innerHTML = '<p class="text-slate-500 text-center mt-10 italic">Cargando canciones del setlist...</p>';
+
+                // 2. Obtener SOLO las canciones de este setlist
+                const songs = await dbBrowser.getSongsInSetlist(list.id);
+
+                // 3. Renderizar exclusivamente esas canciones
+                renderSongList(songs, true);
+
+                // 4. Actualizar buscador para indicar el filtro activo
+                searchInput.value = 'Filtrando Setlist: ' + list.name;
+                searchInput.disabled = true;
+            } catch (e) {
+                console.error("Error al cargar setlist:", e);
+                songList.innerHTML = '<p class="text-red-500 text-center mt-10">Error al cargar las canciones de la lista</p>';
             }
+        };
+
+        div.oncontextmenu = (e) => {
+            e.preventDefault();
+            showContextMenu(e.pageX, e.pageY, {
+                id: list.id,
+                title: list.name,
+                artist: 'Setlist',
+                isSetlist: true
+            });
         };
         setlistContainer.appendChild(div);
     });
@@ -109,10 +136,64 @@ if (btnSaveSetlist) btnSaveSetlist.onclick = async () => {
     loadSetlists();
 };
 if (btnAddToList) btnAddToList.onclick = async () => {
-    if (!currentSong) return alert("Selecciona una canción primero");
     if (!currentSetlistId) return alert("Selecciona un Setlist primero");
-    await dbBrowser.addSongToSetlist(currentSetlistId, currentSong.id);
-    alert("Añadida a la lista");
+
+    const modal = document.getElementById('modal-add-songs-to-setlist');
+    const container = document.getElementById('all-songs-selection-container');
+    const closeBtn = document.getElementById('btn-close-add-songs');
+    const cancelBtn = document.getElementById('btn-cancel-add-songs');
+    const confirmBtn = document.getElementById('btn-confirm-add-songs');
+
+    if (modal && container) {
+        const allSongs = await dbBrowser.getAllSongs();
+        container.innerHTML = '';
+
+        allSongs.forEach(song => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-3 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer transition-colors';
+            div.innerHTML = `
+                <input type="checkbox" id="chk-${song.id}" class="w-5 h-5 accent-orange-500 cursor-pointer">
+                <label for="chk-${song.id}" class="flex-1 cursor-pointer">
+                    <div class="font-bold text-white">${song.title}</div>
+                    <div class="text-sm text-slate-400">${song.artist}</div>
+                </label>
+            `;
+            // Hacer que click en el div también marque el checkbox
+            div.onclick = (e) => {
+                if (e.target.tagName !== 'INPUT') {
+                    const chk = div.querySelector('input');
+                    chk.checked = !chk.checked;
+                }
+            };
+            container.appendChild(div);
+        });
+
+        modal.classList.remove('hidden');
+
+        // Eventos de cierre
+        const hideModal = () => modal.classList.add('hidden');
+        if (closeBtn) closeBtn.onclick = hideModal;
+        if (cancelBtn) cancelBtn.onclick = hideModal;
+
+        // Acción de confirmar
+        confirmBtn.onclick = async () => {
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.id.replace('chk-', ''));
+
+            if (selectedIds.length === 0) return alert("Selecciona al menos una canción");
+
+            for (const songId of selectedIds) {
+                await dbBrowser.addSongToSetlist(currentSetlistId, songId);
+            }
+
+            alert(`Se han añadido ${selectedIds.length} canciones al setlist`);
+            hideModal();
+
+            // Actualizar la lista actual si estamos visualizando ese setlist
+            const songsInList = await dbBrowser.getSongsInSetlist(currentSetlistId);
+            renderSongList(songsInList, true);
+        };
+    }
 };
 
 if (searchInput) {
@@ -141,25 +222,131 @@ function renderSongList(songs, isSetlist = false) {
         const div = document.createElement('div');
         div.className = 'p-3 hover:bg-slate-700 rounded-lg cursor-pointer transition-colors group flex justify-between items-center';
         div.innerHTML = '<div class="flex-1"><div class="font-bold group-hover:text-orange-400 transition-colors">' + song.title + '</div><div class="text-sm text-slate-400">' + song.artist + '</div></div>';
+
+        // Clic izquierdo: Cargar canción
         div.onclick = () => loadSong(song);
-        if (!isSetlist) {
-            const delBtn = document.createElement('button');
-            delBtn.className = 'text-slate-500 hover:text-red-500 px-2 font-bold transition-colors';
-            delBtn.innerText = 'X';
-            delBtn.onclick = async (e) => {
-                e.stopPropagation();
-                if (confirm('¿Eliminar ' + song.title + '?')) {
-                    await dbBrowser.deleteSong(song.id);
-                    loadAllSongs();
-                }
-            };
-            div.appendChild(delBtn);
-        }
+
+        // Clic derecho: Menú Contextual
+        div.oncontextmenu = (e) => {
+            e.preventDefault();
+            showContextMenu(e.pageX, e.pageY, song);
+        };
+
         songList.appendChild(div);
     });
 }
 
+// Lógica del Menú Contextual
+async function showContextMenu(x, y, song) {
+    currentSong = song;
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+    contextMenu.classList.remove('hidden');
+
+    // Cargar el submenú de setlists dinámicamente
+    if (ctxSetlistsSubmenu) {
+        const lists = await dbBrowser.getAllSetlists();
+        ctxSetlistsSubmenu.innerHTML = '';
+
+        if (lists.length === 0) {
+            ctxSetlistsSubmenu.innerHTML = '<div class="px-4 py-2 text-slate-500 italic">No hay listas</div>';
+        } else {
+            lists.forEach(list => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left px-4 py-2 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors flex items-center gap-2';
+                btn.innerHTML = '<span class="truncate">' + list.name + '</span>';
+                btn.onclick = async () => {
+                    await dbBrowser.addSongToSetlist(list.id, song.id);
+                    alert('Añadida a: ' + list.name);
+                    contextMenu.classList.add('hidden');
+                };
+                ctxSetlistsSubmenu.appendChild(btn);
+            });
+        }
+    }
+}
+
+if (ctxAddSetlist) ctxAddSetlist.onclick = async () => {
+    if (!currentSong) return;
+    const modal = document.getElementById('modal-select-setlist');
+    const container = document.getElementById('select-setlist-container');
+    const closeBtn = document.getElementById('btn-close-select-setlist');
+
+    if (modal && container) {
+        const lists = await dbBrowser.getAllSetlists();
+        container.innerHTML = '';
+
+        if (lists.length === 0) {
+            container.innerHTML = '<p class="text-center text-slate-500 py-4">No hay setlists disponibles</p>';
+        } else {
+            lists.forEach(list => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-3 bg-slate-700 hover:bg-orange-600 text-white rounded-lg transition-colors flex justify-between items-center group';
+                btn.innerHTML = `<span>${list.name}</span><span class="opacity-0 group-hover:opacity-100">➕</span>`;
+                btn.onclick = async () => {
+                    await dbBrowser.addSongToSetlist(list.id, currentSong.id);
+                    alert(`Añadida a: ${list.name}`);
+                    modal.classList.add('hidden');
+                };
+                container.appendChild(btn);
+            });
+        }
+        modal.classList.remove('hidden');
+    }
+};
+
+if (ctxSetlistsSubmenuTrigger) {
+    ctxSetlistsSubmenuTrigger.onmouseenter = () => {
+        if (ctxSetlistsSubmenu) ctxSetlistsSubmenu.classList.remove('hidden');
+    };
+}
+
+window.onclick = (e) => {
+    if (contextMenu) contextMenu.classList.add('hidden');
+    if (ctxSetlistsSubmenu) ctxSetlistsSubmenu.classList.add('hidden');
+};
+
+if (ctxEdit) ctxEdit.onclick = () => {
+    if (currentSong) {
+        btnEditCurrent.onclick();
+    }
+};
+
+if (ctxDelete) ctxDelete.onclick = () => {
+    if (currentSong) {
+        if (currentSong.isSetlist) {
+            if (confirm('¿Estás seguro de eliminar la lista "' + currentSong.title + '"?')) {
+                dbBrowser.deleteSetlist(currentSong.id).then(() => {
+                    loadSetlists();
+                    contextMenu.classList.add('hidden');
+                });
+            }
+        } else if (confirm('¿Estás seguro de eliminar la canción "' + currentSong.title + '" de tu biblioteca?')) {
+            dbBrowser.deleteSong(currentSong.id).then(() => {
+                loadAllSongs();
+                contextMenu.classList.add('hidden');
+            });
+        }
+    }
+};
+
+if (ctxRemoveSetlist) ctxRemoveSetlist.onclick = async () => {
+    if (currentSong && currentSetlistId) {
+        if (confirm(`¿Quitar "${currentSong.title}" de la lista actual?`)) {
+            await dbBrowser.removeSongFromSetlist(currentSetlistId, currentSong.id);
+            const songsInList = await dbBrowser.getSongsInSetlist(currentSetlistId);
+            renderSongList(songsInList, true);
+            contextMenu.classList.add('hidden');
+            alert("Canción quitada del setlist");
+        }
+    } else if (currentSong && !currentSetlistId) {
+        alert("Selecciona un Setlist primero para quitar canciones");
+    }
+};
+
+// --- Resto de funciones ---
 function loadSong(song) {
+
     currentSetlistId = null;
     searchInput.disabled = false;
     searchInput.value = '';
