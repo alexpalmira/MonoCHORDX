@@ -75,8 +75,27 @@ class DBBrowser {
         const store = await this._getTransaction('songs');
         return new Promise((resolve, reject) => {
             const request = store.getAll();
-            request.onsuccess = () => resolve(request.result);
+            request.onsuccess = () => {
+                // Ordenamos las canciones por su propiedad 'position'
+                const sorted = request.result.sort((a, b) => (a.position || 0) - (b.position || 0));
+                resolve(sorted);
+            };
             request.onerror = () => reject(request.error);
+        });
+    }
+
+    async updateSongPosition(songId, newPosition) {
+        const store = await this._getTransaction('songs', 'readwrite');
+        return new Promise((resolve, reject) => {
+            const getReq = store.get(songId);
+            getReq.onsuccess = () => {
+                const song = getReq.result;
+                song.position = newPosition;
+                const putReq = store.put(song);
+                putReq.onsuccess = () => resolve();
+                putReq.onerror = () => reject(putReq.error);
+            };
+            getReq.onerror = () => reject(getReq.error);
         });
     }
 
@@ -164,13 +183,36 @@ class DBBrowser {
         });
     }
 
+    async removeSongFromSetlist(setlistId, songId) {
+        const relStore = await this._getTransaction('setlist_songs', 'readwrite');
+        return new Promise((resolve, reject) => {
+            const request = relStore.getAll();
+            request.onsuccess = () => {
+                const relations = request.result;
+                const relToDelete = relations.find(rel => rel.setlistId === setlistId && rel.songId === songId);
+                if (relToDelete) {
+                    const deleteReq = relStore.delete(relToDelete.id);
+                    deleteReq.onsuccess = () => resolve(true);
+                    deleteReq.onerror = () => reject(deleteReq.error);
+                } else {
+                    resolve(false);
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+
     async getSongsInSetlist(setlistId) {
-        const relStore = await this._getTransaction('setlist_songs');
-        const songStore = await this._getTransaction('songs');
+        const db = await this.init();
+        const tx = db.transaction(['setlist_songs', 'songs'], 'readonly');
+        const relStore = tx.objectStore('setlist_songs');
+        const songStore = tx.objectStore('songs');
 
         const relations = await new Promise((resolve) => {
             const request = relStore.getAll();
             request.onsuccess = () => resolve(request.result);
+            request.onerror = () => resolve([]);
         });
 
         const songIds = relations
@@ -181,6 +223,7 @@ class DBBrowser {
             songIds.map(id => new Promise(res => {
                 const req = songStore.get(id);
                 req.onsuccess = () => res(req.result);
+                req.onerror = () => res(undefined);
             }))
         );
 
