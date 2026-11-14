@@ -177,7 +177,7 @@ function loadSong(song) {
 if (btnFullscreen) btnFullscreen.onclick = () => { if (currentSong) { fsView.classList.remove('hidden'); document.body.style.overflow = 'hidden'; renderFsSong(); } };
 if (fsBtnClose) fsBtnClose.onclick = () => { fsView.classList.add('hidden'); document.body.style.overflow = 'auto'; };
 if (fsBtnUp) fsBtnUp.onclick = () => { currentTranspose++; renderFsSong(); };
-if (btnDown) btnDown.onclick = () => { currentTranspose--; renderFsSong(); };
+if (fsBtnDown) fsBtnDown.onclick = () => { currentTranspose--; renderFsSong(); };
 
 function transposeChordCore(chord, amount) {
     if (!chord) return '';
@@ -207,44 +207,28 @@ function transposeChordCore(chord, amount) {
 
 function processLine(line, forceLyric = false) {
     if (!line) return '';
-    const trimmed = line.trim();
-    if (!trimmed) return '<div><br></div>';
+    if (line.trim() === '') return '<div><br></div>';
 
-    const words = trimmed.split(/\s+/).filter(w => w !== "");
+    // Detectamos si la línea contiene acordes sin destruir los espacios
+    const chordRegex = /([A-G][#b]?(m|maj|min|dim|aug|sus|add)?([0-9]|11|13)?([#b])?(\/[A-G][#b]?)?)/gi;
 
-    const isChord = (w) => {
-        if (!w) return false;
-        // LIMPIEZA PROFUNDA: Eliminamos no solo espacios, sino cualquier carácter
-        // invisible o de control al inicio y al final de la palabra.
-        const cleanW = w.replace(/^[\s﻿\xA0]+|[\s﻿\xA0]+$/g, '');
-        if (cleanW.length === 0) return false;
+    // Verificamos si es una línea "pura" de acordes (solo acordes y espacios)
+    const onlyChordsAndSpaces = line.replace(chordRegex, '').trim() === '';
 
-        const chordRegex = /^([A-G][#b]?)(m|maj|min|dim|aug|sus|add)?([0-9]|11|13)?([#b])?([\/][A-G][#b]?)?$/i;
-        if (cleanW.length > 8) return false;
-        return chordRegex.test(cleanW);
-    };
-
-    const chordCount = words.filter(w => isChord(w)).length;
-
-    // Una línea es de acordes si:
-    // 1. Consiste exclusivamente en acordes (esto anula la regla de forceLyric)
-    // 2. O si tiene acordes y NO ha sido forzada a ser letra
-    const isPureChordLine = words.length > 0 && (chordCount === words.length);
-    const isChordLine = isPureChordLine || (!forceLyric && words.length > 0 && chordCount > 0);
-
+    // Una línea es de acordes si es pura o si contiene acordes y no es forzada a letra
+    const isChordLine = onlyChordsAndSpaces || (!forceLyric && chordRegex.test(line));
 
     if (isChordLine) {
-        const transposed = words.map(w => {
-            const cleanW = w.trim();
-            // En una línea de acordes, forzamos a que todo se trate como acorde
-            // para mantener la coherencia visual y de transposición
-            return '<span class="chord">' + transposeChordCore(cleanW, currentTranspose) + '</span>';
-        }).join(' ');
+        // Usamos replace con una función para envolver cada acorde en un span
+        // pero manteniendo TODOS los espacios originales alrededor
+        const transposed = line.replace(chordRegex, (match) => {
+            return '<span class="chord">' + transposeChordCore(match, currentTranspose) + '</span>';
+        });
         return '<div class="chord-line">' + transposed + '</div>';
     } else {
-        // En modo letra, NO buscamos acordes dentro de la línea (Regla 1: No existen ambos al mismo tiempo)
-        let result = words.join(' ');
-        return '<div class="lyric-line">' + result + '</div>';
+        // Para las líneas de letra, simplemente envolvemos el contenido
+        // Manteniendo los espacios originales
+        return '<div class="lyric-line">' + line + '</div>';
     }
 }
 
