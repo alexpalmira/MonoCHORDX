@@ -66,6 +66,49 @@
         </div>
     </div>
 
+    <!-- MODAL DE SELECCIONAR CANCIONES PARA SETLIST -->
+    <div id="modal-add-songs-to-setlist" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
+        <div class="bg-slate-800 w-full max-w-2xl rounded-xl shadow-2xl border border-slate-700 flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-orange-500">Agregar Canciones a Setlist</h3>
+                <button id="btn-close-add-songs" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4">
+                <div id="all-songs-selection-container" class="space-y-2">
+                    <!-- Aquí se cargarán todas las canciones con checkboxes -->
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-700 flex justify-end gap-3">
+                <button id="btn-cancel-add-songs" class="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancelar</button>
+                <button id="btn-confirm-add-songs" class="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-bold transition-colors">Agregar Seleccionadas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTEXT MENU -->
+    <div id="context-menu" class="hidden fixed z-[1000] w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-2 text-sm text-slate-200">
+        <div class="px-4 py-2 hover:bg-slate-700 cursor-pointer flex items-center gap-2 border-b border-slate-700" id="ctx-add-setlist">
+            <span>➕</span> Agregar a Setlist
+        </div>
+        <div class="relative group">
+            <div class="px-4 py-2 hover:bg-slate-700 cursor-pointer flex items-center justify-between gap-2" id="ctx-setlists-submenu-trigger">
+                <span>📂 Mis Setlists</span>
+                <span class="text-xs">▶</span>
+            </div>
+            <!-- Submenu -->
+            <div id="ctx-setlists-submenu" class="hidden absolute left-full top-0 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-2">
+                <!-- Dynamic setlists content -->
+                <div id="ctx-setlists-container" class="max-h-64 overflow-y-auto"></div>
+            </div>
+        </div>
+        <div class="px-4 py-2 hover:bg-slate-700 cursor-pointer flex items-center gap-2" id="ctx-remove-setlist">
+            <span>➖</span> Quitar de Setlist
+        </div>
+        <div class="px-4 py-2 hover:bg-red-900 hover:text-red-200 cursor-pointer flex items-center gap-2 mt-1 border-t border-slate-700" id="ctx-delete">
+            <span>🗑️</span> Eliminar
+        </div>
+    </div>
+
     <!-- VISTA PANTALLA COMPLETA (FOCUS MODE) -->
     <div id="fullscreen-view" class="hidden fixed inset-0 bg-[#0A0A0F] z-[200] flex flex-col overflow-hidden">
         <header class="p-6 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
